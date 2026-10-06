@@ -5,20 +5,23 @@ mod events;
 mod storage;
 mod types;
 
+#[cfg(test)]
+mod test;
+
 use soroban_sdk::{contract, contractimpl, Address, Env};
 use crate::errors::Error;
-use crate::types::{Plan, Subscription};
+use crate::types::{Plan, Subscription, SubscriptionStatus};
 
 #[contract]
 pub struct SubPathContract;
 
 #[contractimpl]
 impl SubPathContract {
-    pub fn initialize(env: Env, admin: Address) -> Result<(), Error> {
-        if storage::get_admin(&env).is_some() {
+    pub fn initialize(env: Env) -> Result<(), Error> {
+        if storage::is_initialized(&env) {
             return Err(Error::AlreadyInitialized);
         }
-        storage::set_admin(&env, &admin);
+        storage::set_initialized(&env);
         storage::set_plan_counter(&env, 1);
         Ok(())
     }
@@ -31,6 +34,13 @@ impl SubPathContract {
         cycle_seconds: u64,
     ) -> Result<u64, Error> {
         merchant.require_auth();
+
+        if amount <= 0 {
+            return Err(Error::InvalidAmount);
+        }
+        if cycle_seconds == 0 {
+            return Err(Error::InvalidCycle);
+        }
 
         let plan_id = storage::get_plan_counter(&env);
         let plan = Plan {
@@ -54,11 +64,17 @@ impl SubPathContract {
         
         let next_billing_time = env.ledger().timestamp().saturating_add(plan.cycle_seconds);
         
+        if let Some(existing_sub) = storage::get_subscription(&env, subscriber.clone(), plan_id) {
+            if existing_sub.status == SubscriptionStatus::Active {
+                return Err(Error::AlreadySubscribed);
+            }
+        }
+
         let sub = Subscription {
             subscriber: subscriber.clone(),
             plan_id,
             next_billing_time,
-            status: 1,
+            status: SubscriptionStatus::Active,
         };
 
         storage::set_subscription(&env, subscriber.clone(), plan_id, &sub);
@@ -81,10 +97,51 @@ impl SubPathContract {
         let mut sub = storage::get_subscription(&env, subscriber.clone(), plan_id)
             .ok_or(Error::SubscriptionNotFound)?;
         
-        sub.status = 0;
+        sub.status = SubscriptionStatus::Canceled;
         storage::set_subscription(&env, subscriber.clone(), plan_id, &sub);
 
         events::sub_end(&env, subscriber, plan_id);
+        Ok(())
+    }
+
+    pub fn pause_subscription(
+        env: Env,
+        subscriber: Address,
+        plan_id: u64,
+    ) -> Result<(), Error> {
+        subscriber.require_auth();
+
+        let mut sub = storage::get_subscription(&env, subscriber.clone(), plan_id)
+            .ok_or(Error::SubscriptionNotFound)?;
+        
+        if sub.status == SubscriptionStatus::Canceled {
+            return Err(Error::SubscriptionCanceled);
+        }
+
+        sub.status = SubscriptionStatus::Paused;
+        storage::set_subscription(&env, subscriber.clone(), plan_id, &sub);
+
+        // Emit an event here if we had one, but we'll reuse sub_end or assume off-chain tracks it
+        Ok(())
+    }
+
+    pub fn resume_subscription(
+        env: Env,
+        subscriber: Address,
+        plan_id: u64,
+    ) -> Result<(), Error> {
+        subscriber.require_auth();
+
+        let mut sub = storage::get_subscription(&env, subscriber.clone(), plan_id)
+            .ok_or(Error::SubscriptionNotFound)?;
+        
+        if sub.status == SubscriptionStatus::Canceled {
+            return Err(Error::SubscriptionCanceled);
+        }
+
+        sub.status = SubscriptionStatus::Active;
+        storage::set_subscription(&env, subscriber.clone(), plan_id, &sub);
+
         Ok(())
     }
 
@@ -99,8 +156,11 @@ impl SubPathContract {
         let mut sub = storage::get_subscription(&env, subscriber.clone(), plan_id)
             .ok_or(Error::SubscriptionNotFound)?;
         
-        if sub.status != 1 {
+        if sub.status == SubscriptionStatus::Canceled {
             return Err(Error::SubscriptionCanceled);
+        }
+        if sub.status == SubscriptionStatus::Paused {
+            return Err(Error::SubscriptionPaused);
         }
 
         if env.ledger().timestamp() < sub.next_billing_time {
@@ -123,5 +183,17 @@ impl SubPathContract {
 
         events::sub_billed(&env, subscriber, plan_id);
         Ok(())
+    }
+
+    pub fn get_plan(env: Env, plan_id: u64) -> Option<Plan> {
+        storage::get_plan(&env, plan_id)
+    }
+
+    pub fn get_subscription(env: Env, subscriber: Address, plan_id: u64) -> Option<Subscription> {
+        storage::get_subscription(&env, subscriber, plan_id)
+    }
+
+    pub fn next_plan_id(env: Env) -> u64 {
+        storage::get_plan_counter(&env)
     }
 }

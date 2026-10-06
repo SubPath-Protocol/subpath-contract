@@ -1,7 +1,7 @@
 all: build
 
 build:
-	cargo build --target wasm32-unknown-unknown --release
+	stellar contract build
 
 test:
 	cargo test

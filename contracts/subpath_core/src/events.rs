@@ -13,5 +13,5 @@ pub fn sub_end(env: &Env, subscriber: Address, plan_id: u64) {
 }
 
 pub fn sub_billed(env: &Env, subscriber: Address, plan_id: u64) {
-    env.events().publish((symbol_short!("sub_billed"), subscriber), plan_id);
+    env.events().publish((soroban_sdk::Symbol::new(env, "sub_billed"), subscriber), plan_id);
 }

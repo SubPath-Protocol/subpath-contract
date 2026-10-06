@@ -9,19 +9,19 @@ pub fn extend_persistent(env: &Env, key: &DataKey) {
     env.storage().persistent().extend_ttl(key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
 }
 
-pub fn set_admin(env: &Env, admin: &Address) {
-    let key = DataKey::Admin;
-    env.storage().persistent().set(&key, admin);
+pub fn set_initialized(env: &Env) {
+    let key = DataKey::Initialized;
+    env.storage().persistent().set(&key, &true);
     extend_persistent(env, &key);
 }
 
-pub fn get_admin(env: &Env) -> Option<Address> {
-    let key = DataKey::Admin;
-    if let Some(admin) = env.storage().persistent().get(&key) {
+pub fn is_initialized(env: &Env) -> bool {
+    let key = DataKey::Initialized;
+    if env.storage().persistent().has(&key) {
         extend_persistent(env, &key);
-        Some(admin)
+        true
     } else {
-        None
+        false
     }
 }
 

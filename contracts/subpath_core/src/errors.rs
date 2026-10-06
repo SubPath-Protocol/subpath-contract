@@ -10,4 +10,8 @@ pub enum Error {
     SubscriptionNotFound = 4,
     SubscriptionCanceled = 5,
     BillingTooEarly = 6,
+    InvalidAmount = 7,
+    InvalidCycle = 8,
+    AlreadySubscribed = 9,
+    SubscriptionPaused = 10,
 }

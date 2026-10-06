@@ -4,7 +4,7 @@
 ![Stellar](https://img.shields.io/badge/Stellar-Soroban-black?logo=stellar)
 ![Drips Wave](https://img.shields.io/badge/Drips-Wave-blueviolet)
 
-SubPath is a decentralized recurring billing protocol built natively on Stellar Soroban. It empowers users to subscribe to services using their preferred local stablecoin, while merchants automatically receive USDC without manual swaps or slippage risk.
+SubPath is a decentralized recurring billing protocol built natively on Stellar Soroban. It empowers users to subscribe to services with recurring token transfers.
 
 This repository contains the core smart contracts written in Rust for the Soroban VM.
 
@@ -16,22 +16,22 @@ SubPath separates subscription state enforcement from token routing, leveraging 
 graph TD
     User(Subscriber) -->|Signs & Sets Allowance| Contract(SubPath Core)
     Merchant -->|Creates Plan| Contract
-    Relayer -->|Executes Cron| Contract
-    Contract -->|Pulls USDC| Token(Stellar Asset Contract)
+    Executor -->|Executes Cron| Contract
+    Contract -->|Pulls Tokens| Token(Stellar Asset Contract)
 ```
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 * Rust (Edition 2021)
-* `wasm32-unknown-unknown` target
+* `wasm32-v1-none` target
 * Stellar CLI
 
 ### Build
 ```bash
 make build
 ```
-This generates the optimized `.wasm` file in `target/wasm32-unknown-unknown/release/`.
+This generates the optimized `.wasm` file in `target/wasm32-v1-none/release/`.
 
 ### Test
 ```bash

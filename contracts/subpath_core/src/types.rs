@@ -2,10 +2,18 @@ use soroban_sdk::{contracttype, Address};
 
 #[contracttype]
 pub enum DataKey {
-    Admin,
+    Initialized,
     Plan(u64),
     Subscription(Address, u64),
     PlanCounter,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum SubscriptionStatus {
+    Active,
+    Canceled,
+    Paused,
 }
 
 #[contracttype]
@@ -21,5 +29,5 @@ pub struct Subscription {
     pub subscriber: Address,
     pub plan_id: u64,
     pub next_billing_time: u64,
-    pub status: u32,
+    pub status: SubscriptionStatus,
 }
