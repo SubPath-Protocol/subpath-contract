@@ -16,7 +16,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: wasm32-v1-none
+          targets: wasm32-unknown-unknown
 
       - name: Install stellar-cli
         run: cargo install --locked stellar-cli
