@@ -1,12 +1,16 @@
-use soroban_sdk::{Address, Env};
 use crate::types::{DataKey, Plan, Subscription};
+use soroban_sdk::{Address, Env};
 
 const DAY_IN_LEDGERS: u32 = 17280; // Assuming ~5 seconds per ledger
 const PERSISTENT_BUMP_AMOUNT: u32 = 30 * DAY_IN_LEDGERS;
 const PERSISTENT_LIFETIME_THRESHOLD: u32 = 15 * DAY_IN_LEDGERS;
 
 pub fn extend_persistent(env: &Env, key: &DataKey) {
-    env.storage().persistent().extend_ttl(key, PERSISTENT_LIFETIME_THRESHOLD, PERSISTENT_BUMP_AMOUNT);
+    env.storage().persistent().extend_ttl(
+        key,
+        PERSISTENT_LIFETIME_THRESHOLD,
+        PERSISTENT_BUMP_AMOUNT,
+    );
 }
 
 pub fn set_initialized(env: &Env) {

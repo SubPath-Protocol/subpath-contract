@@ -8,9 +8,9 @@ mod types;
 #[cfg(test)]
 mod test;
 
-use soroban_sdk::{contract, contractimpl, Address, Env};
 use crate::errors::Error;
 use crate::types::{Plan, Subscription, SubscriptionStatus};
+use soroban_sdk::{contract, contractimpl, Address, Env};
 
 #[contract]
 pub struct SubPathContract;
@@ -61,9 +61,9 @@ impl SubPathContract {
         subscriber.require_auth();
 
         let plan = storage::get_plan(&env, plan_id).ok_or(Error::PlanNotFound)?;
-        
+
         let next_billing_time = env.ledger().timestamp().saturating_add(plan.cycle_seconds);
-        
+
         if let Some(existing_sub) = storage::get_subscription(&env, subscriber.clone(), plan_id) {
             if existing_sub.status == SubscriptionStatus::Active {
                 return Err(Error::AlreadySubscribed);
@@ -87,16 +87,12 @@ impl SubPathContract {
         Ok(())
     }
 
-    pub fn cancel_subscription(
-        env: Env,
-        subscriber: Address,
-        plan_id: u64,
-    ) -> Result<(), Error> {
+    pub fn cancel_subscription(env: Env, subscriber: Address, plan_id: u64) -> Result<(), Error> {
         subscriber.require_auth();
 
         let mut sub = storage::get_subscription(&env, subscriber.clone(), plan_id)
             .ok_or(Error::SubscriptionNotFound)?;
-        
+
         sub.status = SubscriptionStatus::Canceled;
         storage::set_subscription(&env, subscriber.clone(), plan_id, &sub);
 
@@ -104,16 +100,12 @@ impl SubPathContract {
         Ok(())
     }
 
-    pub fn pause_subscription(
-        env: Env,
-        subscriber: Address,
-        plan_id: u64,
-    ) -> Result<(), Error> {
+    pub fn pause_subscription(env: Env, subscriber: Address, plan_id: u64) -> Result<(), Error> {
         subscriber.require_auth();
 
         let mut sub = storage::get_subscription(&env, subscriber.clone(), plan_id)
             .ok_or(Error::SubscriptionNotFound)?;
-        
+
         if sub.status == SubscriptionStatus::Canceled {
             return Err(Error::SubscriptionCanceled);
         }
@@ -125,16 +117,12 @@ impl SubPathContract {
         Ok(())
     }
 
-    pub fn resume_subscription(
-        env: Env,
-        subscriber: Address,
-        plan_id: u64,
-    ) -> Result<(), Error> {
+    pub fn resume_subscription(env: Env, subscriber: Address, plan_id: u64) -> Result<(), Error> {
         subscriber.require_auth();
 
         let mut sub = storage::get_subscription(&env, subscriber.clone(), plan_id)
             .ok_or(Error::SubscriptionNotFound)?;
-        
+
         if sub.status == SubscriptionStatus::Canceled {
             return Err(Error::SubscriptionCanceled);
         }
@@ -155,7 +143,7 @@ impl SubPathContract {
 
         let mut sub = storage::get_subscription(&env, subscriber.clone(), plan_id)
             .ok_or(Error::SubscriptionNotFound)?;
-        
+
         if sub.status == SubscriptionStatus::Canceled {
             return Err(Error::SubscriptionCanceled);
         }
