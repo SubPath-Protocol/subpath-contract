@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 use soroban_sdk::{symbol_short, Address, Env};
 
 pub fn plan_add(env: &Env, merchant: Address, plan_id: u64) {
