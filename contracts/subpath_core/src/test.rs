@@ -140,7 +140,7 @@ fn test_subscription_cancel() {
 #[test]
 fn test_billing_success() {
     let env = Env::default();
-    let (client, token, merchant, subscriber, executor, _) = setup(&env);
+    let (client, token, merchant, subscriber, _, _) = setup(&env);
     client.initialize();
     token.mint(&subscriber, &10000);
     token.approve(&subscriber, &client.address, &10000, &2000000);
@@ -153,7 +153,7 @@ fn test_billing_success() {
     env.ledger()
         .with_mut(|l| l.timestamp = sub1.next_billing_time);
 
-    client.execute_billing(&executor, &subscriber, &plan_id);
+    client.execute_billing(&subscriber, &plan_id);
 
     assert_eq!(token.balance(&subscriber), 8000);
     assert_eq!(token.balance(&merchant), 2000);
@@ -165,21 +165,21 @@ fn test_billing_success() {
 #[test]
 fn test_billing_too_early() {
     let env = Env::default();
-    let (client, token, merchant, subscriber, executor, _) = setup(&env);
+    let (client, token, merchant, subscriber, _, _) = setup(&env);
     client.initialize();
     token.mint(&subscriber, &10000);
 
     let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000);
     client.subscribe(&subscriber, &plan_id);
 
-    let res = client.try_execute_billing(&executor, &subscriber, &plan_id);
+    let res = client.try_execute_billing(&subscriber, &plan_id);
     assert!(res.is_err());
 }
 
 #[test]
 fn test_billing_canceled() {
     let env = Env::default();
-    let (client, token, merchant, subscriber, executor, _) = setup(&env);
+    let (client, token, merchant, subscriber, _, _) = setup(&env);
     client.initialize();
     token.mint(&subscriber, &10000);
 
@@ -191,14 +191,14 @@ fn test_billing_canceled() {
     env.ledger()
         .with_mut(|l| l.timestamp = sub1.next_billing_time);
 
-    let res = client.try_execute_billing(&executor, &subscriber, &plan_id);
+    let res = client.try_execute_billing(&subscriber, &plan_id);
     assert!(res.is_err());
 }
 
 #[test]
 fn test_billing_late() {
     let env = Env::default();
-    let (client, token, merchant, subscriber, executor, _) = setup(&env);
+    let (client, token, merchant, subscriber, _, _) = setup(&env);
     client.initialize();
     token.mint(&subscriber, &10000);
     token.approve(&subscriber, &client.address, &10000, &2000000);
@@ -211,10 +211,39 @@ fn test_billing_late() {
     env.ledger()
         .with_mut(|l| l.timestamp = sub1.next_billing_time + 3000000);
 
-    client.execute_billing(&executor, &subscriber, &plan_id);
+    client.execute_billing(&subscriber, &plan_id);
 
     assert_eq!(token.balance(&subscriber), 8000);
 
     let sub2 = client.get_subscription(&subscriber, &plan_id).unwrap();
     assert_eq!(sub2.next_billing_time, sub1.next_billing_time + 2592000);
+}
+
+#[test]
+fn test_pause_and_resume() {
+    let env = Env::default();
+    let (client, token, merchant, subscriber, _, _) = setup(&env);
+    client.initialize();
+    token.mint(&subscriber, &10000);
+    token.approve(&subscriber, &client.address, &10000, &2000000);
+
+    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000);
+    client.subscribe(&subscriber, &plan_id);
+
+    client.pause_subscription(&subscriber, &plan_id);
+    let sub = client.get_subscription(&subscriber, &plan_id).unwrap();
+    assert_eq!(sub.status, SubscriptionStatus::Paused);
+
+    let sub_time = sub.next_billing_time;
+    env.ledger().with_mut(|l| l.timestamp = sub_time);
+
+    let res = client.try_execute_billing(&subscriber, &plan_id);
+    assert!(res.is_err());
+
+    client.resume_subscription(&subscriber, &plan_id);
+    let sub_resumed = client.get_subscription(&subscriber, &plan_id).unwrap();
+    assert_eq!(sub_resumed.status, SubscriptionStatus::Active);
+
+    client.execute_billing(&subscriber, &plan_id);
+    assert_eq!(token.balance(&subscriber), 8000);
 }

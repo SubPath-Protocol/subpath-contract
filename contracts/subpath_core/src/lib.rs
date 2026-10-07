@@ -133,14 +133,7 @@ impl SubPathContract {
         Ok(())
     }
 
-    pub fn execute_billing(
-        env: Env,
-        caller: Address,
-        subscriber: Address,
-        plan_id: u64,
-    ) -> Result<(), Error> {
-        caller.require_auth();
-
+    pub fn execute_billing(env: Env, subscriber: Address, plan_id: u64) -> Result<(), Error> {
         let mut sub = storage::get_subscription(&env, subscriber.clone(), plan_id)
             .ok_or(Error::SubscriptionNotFound)?;
 
