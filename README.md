@@ -3,49 +3,81 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Stellar](https://img.shields.io/badge/Stellar-Soroban-black?logo=stellar)
 ![Drips Wave](https://img.shields.io/badge/Drips-Wave-blueviolet)
+[![CI](https://github.com/SubPath-Protocol/subpath-contract/actions/workflows/ci.yml/badge.svg)](https://github.com/SubPath-Protocol/subpath-contract/actions)
 
-SubPath is a decentralized recurring billing protocol built natively on Stellar Soroban. It empowers users to subscribe to services with recurring token transfers.
+SubPath is a decentralized recurring billing protocol built natively on Stellar Soroban. It empowers merchants to create token-denominated subscription plans and allows subscribers to opt in with automated, permissionless recurring billing.
 
-This repository contains the core smart contracts written in Rust for the Soroban VM.
+This repository contains the core smart contract (`subpath-core`) written in Rust for the Soroban VM.
 
-## 🏗 Architecture
+---
 
-SubPath separates subscription state enforcement from token routing, leveraging standard Soroban AMMs or Stellar Path Payments via relayers to keep the core contract lightweight and cheap.
+## 🌐 Testnet Deployment (v0.1.0)
+
+* **Contract ID**: [`CA47TXUKH2ERFNIEUUCBO4GOW5HDNPOGMG4NLKWCHAXQFVXN4XWJP6MK`](https://lab.stellar.org/r/testnet/contract/CA47TXUKH2ERFNIEUUCBO4GOW5HDNPOGMG4NLKWCHAXQFVXN4XWJP6MK)
+* **Network**: Stellar Testnet
+* **Deployer / Admin Address**: `GBOWTBFBE5DFOLVESCOQDJERT2K7BAGNOZACMYS3FIA62IXOOGS4SJQU`
+* **WASM Hash**: `5924e7e0ade07537734f4e90cdb4c3ffe2301cf7873b4abd894cdbbd9a26bd63`
+* **Stellar Expert Explorer**: [tx/3598b2...](https://stellar.expert/explorer/testnet/tx/3598b232d3afac12911f5ed79e3063f559d50a6990362a91ff25fae5c99eea98)
+
+---
+
+## 🏗 Architecture & Core Lifecycle
 
 ```mermaid
 graph TD
-    User(Subscriber) -->|Signs & Sets Allowance| Contract(SubPath Core)
-    Merchant -->|Creates Plan| Contract
-    Executor -->|Executes Cron| Contract
-    Contract -->|Pulls Tokens| Token(Stellar Asset Contract)
+    Merchant -->|1. create_plan| Contract(SubPath Core)
+    Subscriber -->|2. approve allowance & subscribe| Contract
+    Contract -->|3. First payment transfer| Token(Stellar Asset)
+    Anyone(Permissionless Cron/Relayer) -->|4. execute_billing| Contract
+    Contract -->|5. transfer_from via allowance| Token
 ```
 
-## 🚀 Quick Start
+### Protocol Workflow
+1. **Plan Creation**: Merchants create subscription plans specifying `token`, `amount`, and `cycle_seconds`.
+2. **Subscription & First Payment**: Subscribers authorize subscription to a plan. The first payment is processed atomically upon subscription.
+3. **Allowance & Permissionless Recurring Billing**: Subscribers approve token allowance to the SubPath Contract address. Once the billing cycle elapses (`ledger timestamp >= next_billing_time`), **anyone** (permissionless relayer or cron worker) can invoke `execute_billing(subscriber, plan_id)` to trigger the recurring token transfer.
+4. **Subscription Controls**: Subscribers can pause, resume, or cancel active subscriptions.
 
-### Prerequisites
-* Rust (Edition 2021)
-* `wasm32-v1-none` target
-* Stellar CLI
+---
 
-### Build
+## 🚀 Development & Verification
+
+### Toolchain Requirements
+* Rust (Stable toolchain) with target `wasm32v1-none`
+* `stellar-cli` (v28.0.0+)
+
+### Commands
 ```bash
+# Build WASM contract
 make build
-```
-This generates the optimized `.wasm` file in `target/wasm32-v1-none/release/`.
+# or: stellar contract build
 
-### Test
-```bash
-make test
+# Run unit test suite
+cargo test --workspace
+
+# Check formatting and lints
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
 ```
+
+---
+
+## 🔒 Branch Protection & CI Checks
+
+Pull Requests must pass the following required GitHub Action checks prior to merging to `main`:
+1. `Run cargo fmt`
+2. `Run clippy`
+3. `Run unit tests`
+4. `Build contract`
+
+---
 
 ## 🤝 Contributing
-Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, branching model, and the process for submitting Pull Requests to us.
+Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines. Future roadmap items and contributor tasks are tracked in [`docs/backlog/`](docs/backlog/).
 
 ## 🛡 Security
-If you discover a vulnerability, please do NOT open a public issue. Review our [SECURITY.md](SECURITY.md) for responsible disclosure.
+* **Audit Status**: Unaudited MVP (`v0.1.0`). Provided as-is for testnet evaluation.
+* Please review [SECURITY.md](SECURITY.md) to report any security concerns directly to `security@subpath-protocol.com`.
 
-## ✨ Contributors
-Made with [contrib.rocks](https://contrib.rocks).
-<a href="https://github.com/SubPath-Protocol/subpath-contract/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=SubPath-Protocol/subpath-contract" />
-</a>
+## 📜 License
+Licensed under the [MIT License](LICENSE).
