@@ -13,11 +13,11 @@ This repository contains the core smart contract (`subpath-core`) written in Rus
 
 ## 🌐 Testnet Deployment (v0.1.0)
 
-* **Contract ID**: [`CA47TXUKH2ERFNIEUUCBO4GOW5HDNPOGMG4NLKWCHAXQFVXN4XWJP6MK`](https://lab.stellar.org/r/testnet/contract/CA47TXUKH2ERFNIEUUCBO4GOW5HDNPOGMG4NLKWCHAXQFVXN4XWJP6MK)
+* **Contract ID**: [`CC4ZFZ64RQ6CG3PTBNDB4A6YB7SJEW2NZ56YNNBBZVC7HDQTNIKWLUV3`](https://lab.stellar.org/r/testnet/contract/CC4ZFZ64RQ6CG3PTBNDB4A6YB7SJEW2NZ56YNNBBZVC7HDQTNIKWLUV3)
 * **Network**: Stellar Testnet
 * **Deployer / Admin Address**: `GBOWTBFBE5DFOLVESCOQDJERT2K7BAGNOZACMYS3FIA62IXOOGS4SJQU`
-* **WASM Hash**: `5924e7e0ade07537734f4e90cdb4c3ffe2301cf7873b4abd894cdbbd9a26bd63`
-* **Stellar Expert Explorer**: [tx/3598b2...](https://stellar.expert/explorer/testnet/tx/3598b232d3afac12911f5ed79e3063f559d50a6990362a91ff25fae5c99eea98)
+* **WASM Hash**: `b96d0c3dd54253e4ceec2158d9960df19613101ff62acc8f307635c61888fb49`
+* **Stellar Expert Explorer**: [tx/6f16e1...](https://stellar.expert/explorer/testnet/tx/6f16e1c93e583914bef7c87290499acb3879dff02e62e61e10495d83b4a47b5a)
 
 ---
 
