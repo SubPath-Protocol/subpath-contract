@@ -113,7 +113,7 @@ impl SubPathContract {
         sub.status = SubscriptionStatus::Paused;
         storage::set_subscription(&env, subscriber.clone(), plan_id, &sub);
 
-        // Emit an event here if we had one, but we'll reuse sub_end or assume off-chain tracks it
+        events::sub_pause(&env, subscriber, plan_id);
         Ok(())
     }
 
@@ -130,6 +130,7 @@ impl SubPathContract {
         sub.status = SubscriptionStatus::Active;
         storage::set_subscription(&env, subscriber.clone(), plan_id, &sub);
 
+        events::sub_resume(&env, subscriber, plan_id);
         Ok(())
     }
 

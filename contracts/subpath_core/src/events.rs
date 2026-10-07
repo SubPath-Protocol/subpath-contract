@@ -22,3 +22,17 @@ pub fn sub_billed(env: &Env, subscriber: Address, plan_id: u64) {
         plan_id,
     );
 }
+
+pub fn sub_pause(env: &Env, subscriber: Address, plan_id: u64) {
+    env.events().publish(
+        (soroban_sdk::Symbol::new(env, "sub_pause"), subscriber),
+        plan_id,
+    );
+}
+
+pub fn sub_resume(env: &Env, subscriber: Address, plan_id: u64) {
+    env.events().publish(
+        (soroban_sdk::Symbol::new(env, "sub_resume"), subscriber),
+        plan_id,
+    );
+}
