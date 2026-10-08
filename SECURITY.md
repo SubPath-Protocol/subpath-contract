@@ -1,10 +1,22 @@
 # Security Policy
 
-## Supported Versions
-Currently, only the `main` branch is actively supported with security updates.
+## Scope & Deployment Status
+
+* **Status**: Experimental MVP (`v0.1.0`).
+* **Environment**: Stellar Testnet only.
+* **Audit Status**: Unaudited. No third-party professional security audit has been conducted.
+* **Mainnet Notice**: This contract is NOT intended for production mainnet deployment with real financial assets.
+
+## Custody & Signing Boundaries
+
+* SubPath is strictly **non-custodial**. The contract does not hold user balances or maintain custody of private keys.
+* Token transfers use standard SEP-41 token allowances.
+* All state-changing methods except `execute_billing` require cryptographic authentication from the respective account.
 
 ## Reporting a Vulnerability
-**Do not report security vulnerabilities through public GitHub issues.**
 
-Please report any security issues to `security@subpath-protocol.com`. We will acknowledge receipt of your vulnerability report within 48 hours and provide updates on the status of the patch.
-*Note: This repository is currently unaudited and provided as-is.*
+If you discover a security vulnerability or potential exploit, please report it responsibly:
+
+* **Email**: `security@subpath-protocol.com`
+* **Do Not File Public Issues**: Do not disclose vulnerabilities in public GitHub issues or discussions.
+* **Response Commitment**: We acknowledge reports within 48 hours and coordinate fixes prior to public disclosure.
