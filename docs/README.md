@@ -8,6 +8,7 @@ Welcome to the SubPath smart contract documentation. This documentation set cove
 * [Contract Reference](contract-reference.md): Complete specification of all entrypoints, parameters, return types, storage layouts, events, and error codes.
 * [Testnet Deployment Evidence](testnet-deployment.md): Verified deployment parameters, transaction hashes, WASM digest, and public testnet addresses.
 * [Security Model](security-model.md): Threat analysis, allowance scope, permissionless billing boundaries, and audit status.
+* [v0.1.0 Release Notes](release-notes-v0.1.0.md): Scope, verified deployment parameters, and verification evidence for the v0.1.0 release.
 
 ## Repository Governance
 
