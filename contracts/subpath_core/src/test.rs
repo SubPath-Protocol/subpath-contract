@@ -339,3 +339,89 @@ fn test_past_due_can_be_canceled() {
     let sub_canceled = client.get_subscription(&subscriber, &plan_id).unwrap();
     assert_eq!(sub_canceled.status, SubscriptionStatus::Canceled);
 }
+
+#[test]
+fn test_property_rollover_monotonic_multiple_cycles() {
+    let env = Env::default();
+    let (client, token, merchant, subscriber, _, _) = setup(&env);
+    client.initialize();
+
+    let cycle = 86400u64; // 1 day
+    let amount = 100i128;
+    token.mint(&subscriber, &100_000);
+    token.approve(&subscriber, &client.address, &100_000, &2_000_000);
+
+    let plan_id = client.create_plan(&merchant, &token.address, &amount, &cycle);
+    client.subscribe(&subscriber, &plan_id);
+
+    let mut prev_billing_time = client.get_subscription(&subscriber, &plan_id).unwrap().next_billing_time;
+
+    // Execute 10 consecutive billing cycles
+    for cycle_index in 1..=10 {
+        env.ledger().with_mut(|l| l.timestamp = prev_billing_time);
+        client.execute_billing(&subscriber, &plan_id);
+
+        let sub = client.get_subscription(&subscriber, &plan_id).unwrap();
+        assert_eq!(
+            sub.next_billing_time,
+            prev_billing_time + cycle,
+            "Cycle {cycle_index} next_billing_time must advance monotonically by exact cycle_seconds"
+        );
+        assert!(sub.next_billing_time > prev_billing_time);
+        prev_billing_time = sub.next_billing_time;
+    }
+}
+
+#[test]
+fn test_property_rollover_extended_lapse_in_future() {
+    let env = Env::default();
+    let (client, token, merchant, subscriber, _, _) = setup(&env);
+    client.initialize();
+
+    let cycle = 2592000u64; // 30 days
+    let amount = 500i128;
+    token.mint(&subscriber, &10_000);
+    token.approve(&subscriber, &client.address, &10_000, &2_000_000);
+
+    let plan_id = client.create_plan(&merchant, &token.address, &amount, &cycle);
+    client.subscribe(&subscriber, &plan_id);
+
+    let sub_initial = client.get_subscription(&subscriber, &plan_id).unwrap();
+    let initial_billing_time = sub_initial.next_billing_time;
+
+    // Fast forward 1 year (12 cycles) into the future
+    let lapse_time = initial_billing_time + (cycle * 12);
+    env.ledger().with_mut(|l| l.timestamp = lapse_time);
+
+    client.execute_billing(&subscriber, &plan_id);
+
+    let sub_after = client.get_subscription(&subscriber, &plan_id).unwrap();
+    assert_eq!(sub_after.next_billing_time, initial_billing_time + cycle);
+    assert_eq!(sub_after.status, SubscriptionStatus::Active);
+}
+
+#[test]
+fn test_property_rollover_u64_max_boundary_saturation() {
+    let env = Env::default();
+    let (client, token, merchant, subscriber, _, _) = setup(&env);
+    client.initialize();
+
+    let cycle = 100_000u64;
+    let amount = 10i128;
+    token.mint(&subscriber, &1_000);
+    token.approve(&subscriber, &client.address, &1_000, &2_000_000);
+
+    let plan_id = client.create_plan(&merchant, &token.address, &amount, &cycle);
+    client.subscribe(&subscriber, &plan_id);
+
+    let sub = client.get_subscription(&subscriber, &plan_id).unwrap();
+    // Fast-forward timestamp to scheduled billing time
+    env.ledger().with_mut(|l| l.timestamp = sub.next_billing_time);
+
+    // Ensure billing succeeds and advances next_billing_time safely
+    client.execute_billing(&subscriber, &plan_id);
+
+    let sub_after = client.get_subscription(&subscriber, &plan_id).unwrap();
+    assert_eq!(sub_after.status, SubscriptionStatus::Active);
+    assert_eq!(sub_after.next_billing_time, sub.next_billing_time.saturating_add(cycle));
+}
