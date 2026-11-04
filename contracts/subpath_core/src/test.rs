@@ -52,7 +52,7 @@ fn test_plan_create_success() {
     let (client, token, merchant, _, _, _) = setup(&env);
     client.initialize();
 
-    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000);
+    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000, &soroban_sdk::String::from_str(&env, "tier:pro"));
     assert_eq!(plan_id, 1);
 
     let plan = client.get_plan(&1).unwrap();
@@ -67,10 +67,10 @@ fn test_plan_create_invalid_amount() {
     let (client, token, merchant, _, _, _) = setup(&env);
     client.initialize();
 
-    let res = client.try_create_plan(&merchant, &token.address, &0, &2592000);
+    let res = client.try_create_plan(&merchant, &token.address, &0, &2592000, &soroban_sdk::String::from_str(&env, ""));
     assert!(res.is_err());
 
-    let res2 = client.try_create_plan(&merchant, &token.address, &-100, &2592000);
+    let res2 = client.try_create_plan(&merchant, &token.address, &-100, &2592000, &soroban_sdk::String::from_str(&env, ""));
     assert!(res2.is_err());
 }
 
@@ -80,7 +80,7 @@ fn test_plan_create_invalid_cycle() {
     let (client, token, merchant, _, _, _) = setup(&env);
     client.initialize();
 
-    let res = client.try_create_plan(&merchant, &token.address, &1000, &0);
+    let res = client.try_create_plan(&merchant, &token.address, &1000, &0, &soroban_sdk::String::from_str(&env, ""));
     assert!(res.is_err());
 }
 
@@ -92,7 +92,7 @@ fn test_subscription_success() {
 
     token.mint(&subscriber, &10000);
 
-    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000);
+    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000, &soroban_sdk::String::from_str(&env, "tier:pro"));
 
     let initial_timestamp = env.ledger().timestamp();
 
@@ -115,7 +115,7 @@ fn test_subscription_duplicate() {
     client.initialize();
     token.mint(&subscriber, &10000);
 
-    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000);
+    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000, &soroban_sdk::String::from_str(&env, "tier:pro"));
 
     client.subscribe(&subscriber, &plan_id);
     let res = client.try_subscribe(&subscriber, &plan_id);
@@ -129,7 +129,7 @@ fn test_subscription_cancel() {
     client.initialize();
     token.mint(&subscriber, &10000);
 
-    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000);
+    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000, &soroban_sdk::String::from_str(&env, "tier:pro"));
     client.subscribe(&subscriber, &plan_id);
 
     client.cancel_subscription(&subscriber, &plan_id);
@@ -145,7 +145,7 @@ fn test_billing_success() {
     token.mint(&subscriber, &10000);
     token.approve(&subscriber, &client.address, &10000, &2000000);
 
-    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000);
+    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000, &soroban_sdk::String::from_str(&env, "tier:pro"));
     client.subscribe(&subscriber, &plan_id);
 
     let sub1 = client.get_subscription(&subscriber, &plan_id).unwrap();
@@ -169,7 +169,7 @@ fn test_billing_too_early() {
     client.initialize();
     token.mint(&subscriber, &10000);
 
-    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000);
+    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000, &soroban_sdk::String::from_str(&env, "tier:pro"));
     client.subscribe(&subscriber, &plan_id);
 
     let res = client.try_execute_billing(&subscriber, &plan_id);
@@ -183,7 +183,7 @@ fn test_billing_canceled() {
     client.initialize();
     token.mint(&subscriber, &10000);
 
-    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000);
+    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000, &soroban_sdk::String::from_str(&env, "tier:pro"));
     client.subscribe(&subscriber, &plan_id);
     client.cancel_subscription(&subscriber, &plan_id);
 
@@ -203,7 +203,7 @@ fn test_billing_late() {
     token.mint(&subscriber, &10000);
     token.approve(&subscriber, &client.address, &10000, &2000000);
 
-    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000);
+    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000, &soroban_sdk::String::from_str(&env, "tier:pro"));
     client.subscribe(&subscriber, &plan_id);
 
     let sub1 = client.get_subscription(&subscriber, &plan_id).unwrap();
@@ -227,7 +227,7 @@ fn test_pause_and_resume() {
     token.mint(&subscriber, &10000);
     token.approve(&subscriber, &client.address, &10000, &2000000);
 
-    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000);
+    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000, &soroban_sdk::String::from_str(&env, "tier:pro"));
     client.subscribe(&subscriber, &plan_id);
 
     client.pause_subscription(&subscriber, &plan_id);
@@ -246,4 +246,35 @@ fn test_pause_and_resume() {
 
     client.execute_billing(&subscriber, &plan_id);
     assert_eq!(token.balance(&subscriber), 8000);
+}
+
+#[test]
+fn test_plan_metadata_persistence_and_retrieval() {
+    let env = Env::default();
+    let (client, token, merchant, _, _, _) = setup(&env);
+    client.initialize();
+
+    let meta = soroban_sdk::String::from_str(&env, "ipfs://bafkreidtestcid123456789");
+    let plan_id = client.create_plan(&merchant, &token.address, &2500, &86400, &meta);
+
+    let plan = client.get_plan(&plan_id).expect("plan should exist");
+    assert_eq!(plan.merchant, merchant);
+    assert_eq!(plan.amount, 2500);
+    assert_eq!(plan.cycle_seconds, 86400);
+    assert_eq!(plan.metadata, meta);
+}
+
+#[test]
+fn test_plan_metadata_empty_and_custom_json() {
+    let env = Env::default();
+    let (client, token, merchant, _, _, _) = setup(&env);
+    client.initialize();
+
+    let empty_meta = soroban_sdk::String::from_str(&env, "");
+    let p1 = client.create_plan(&merchant, &token.address, &100, &3600, &empty_meta);
+    assert_eq!(client.get_plan(&p1).unwrap().metadata, empty_meta);
+
+    let json_meta = soroban_sdk::String::from_str(&env, "tier:enterprise");
+    let p2 = client.create_plan(&merchant, &token.address, &5000, &3600, &json_meta);
+    assert_eq!(client.get_plan(&p2).unwrap().metadata, json_meta);
 }

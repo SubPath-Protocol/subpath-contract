@@ -17,11 +17,13 @@ pub enum SubscriptionStatus {
 }
 
 #[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Plan {
     pub merchant: Address,
     pub token: Address,
     pub amount: i128,
     pub cycle_seconds: u64,
+    pub metadata: soroban_sdk::String,
 }
 
 #[contracttype]

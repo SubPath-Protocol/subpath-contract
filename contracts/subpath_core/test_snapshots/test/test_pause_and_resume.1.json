@@ -97,6 +97,9 @@
                 },
                 {
                   "u64": "2592000"
+                },
+                {
+                  "string": "tier:pro"
                 }
               ]
             }
@@ -315,6 +318,14 @@
                     },
                     "val": {
                       "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "metadata"
+                    },
+                    "val": {
+                      "string": "tier:pro"
                     }
                   },
                   {

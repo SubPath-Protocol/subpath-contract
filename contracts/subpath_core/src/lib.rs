@@ -32,6 +32,7 @@ impl SubPathContract {
         token: Address,
         amount: i128,
         cycle_seconds: u64,
+        metadata: soroban_sdk::String,
     ) -> Result<u64, Error> {
         merchant.require_auth();
 
@@ -48,12 +49,13 @@ impl SubPathContract {
             token,
             amount,
             cycle_seconds,
+            metadata: metadata.clone(),
         };
 
         storage::set_plan(&env, plan_id, &plan);
         storage::set_plan_counter(&env, plan_id + 1);
 
-        events::plan_add(&env, merchant, plan_id);
+        events::plan_add(&env, merchant, plan_id, metadata);
         Ok(plan_id)
     }
 

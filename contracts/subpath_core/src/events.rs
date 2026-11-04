@@ -1,9 +1,9 @@
 #![allow(deprecated)]
 use soroban_sdk::{symbol_short, Address, Env};
 
-pub fn plan_add(env: &Env, merchant: Address, plan_id: u64) {
+pub fn plan_add(env: &Env, merchant: Address, plan_id: u64, metadata: soroban_sdk::String) {
     env.events()
-        .publish((symbol_short!("plan_add"), merchant), plan_id);
+        .publish((symbol_short!("plan_add"), merchant), (plan_id, metadata));
 }
 
 pub fn sub_new(env: &Env, subscriber: Address, plan_id: u64) {
