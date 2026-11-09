@@ -345,7 +345,8 @@ fn test_duplicate_billing_in_same_cycle_rejected_by_contract() {
     client.subscribe(&subscriber, &plan_id);
 
     let sub = client.get_subscription(&subscriber, &plan_id).unwrap();
-    env.ledger().with_mut(|l| l.timestamp = sub.next_billing_time);
+    env.ledger()
+        .with_mut(|l| l.timestamp = sub.next_billing_time);
 
     // First billing execution succeeds
     client.execute_billing(&subscriber, &plan_id);
@@ -354,7 +355,10 @@ fn test_duplicate_billing_in_same_cycle_rejected_by_contract() {
 
     // Second immediate billing attempt within same cycle MUST fail with BillingTooEarly
     let duplicate_res = client.try_execute_billing(&subscriber, &plan_id);
-    assert_eq!(duplicate_res, Err(Ok(crate::errors::Error::BillingTooEarly)));
+    assert_eq!(
+        duplicate_res,
+        Err(Ok(crate::errors::Error::BillingTooEarly))
+    );
     // Balance remains unchanged (no double billing)
     assert_eq!(token.balance(&subscriber), 8000);
     assert_eq!(token.balance(&merchant), 2000);
