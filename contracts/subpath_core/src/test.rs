@@ -34,7 +34,10 @@ fn setup<'a>(
 }
 
 fn default_meta(env: &Env) -> String {
-    String::from_str(env, "ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi")
+    String::from_str(
+        env,
+        "ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
+    )
 }
 
 #[test]
