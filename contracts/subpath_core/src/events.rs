@@ -1,9 +1,10 @@
 #![allow(deprecated)]
-use soroban_sdk::{symbol_short, Address, Env};
+use soroban_sdk::{symbol_short, Address, Env, String};
 
-pub fn plan_add(env: &Env, merchant: Address, plan_id: u64) {
+pub fn plan_add(env: &Env, merchant: Address, plan_id: u64, metadata: String) {
+    let payload = (plan_id, metadata);
     env.events()
-        .publish((symbol_short!("plan_add"), merchant), plan_id);
+        .publish((symbol_short!("plan_add"), merchant), payload);
 }
 
 pub fn sub_new(env: &Env, subscriber: Address, plan_id: u64) {

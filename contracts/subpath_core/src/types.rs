@@ -1,4 +1,4 @@
-use soroban_sdk::{contracttype, Address};
+use soroban_sdk::{contracttype, Address, String};
 
 #[contracttype]
 pub enum DataKey {
@@ -22,6 +22,7 @@ pub struct Plan {
     pub token: Address,
     pub amount: i128,
     pub cycle_seconds: u64,
+    pub metadata: String,
 }
 
 #[contracttype]

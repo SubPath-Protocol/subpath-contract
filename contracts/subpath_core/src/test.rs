@@ -4,7 +4,7 @@ use crate::types::SubscriptionStatus;
 use crate::{SubPathContract, SubPathContractClient};
 use soroban_sdk::{
     testutils::{Address as _, Ledger},
-    token, Address, Env,
+    token, Address, Env, String,
 };
 
 fn setup<'a>(
@@ -33,6 +33,10 @@ fn setup<'a>(
     (client, token, merchant, subscriber, executor, admin)
 }
 
+fn default_meta(env: &Env) -> String {
+    String::from_str(env, "ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi")
+}
+
 #[test]
 fn test_initialization() {
     let env = Env::default();
@@ -51,14 +55,16 @@ fn test_plan_create_success() {
     let env = Env::default();
     let (client, token, merchant, _, _, _) = setup(&env);
     client.initialize();
+    let meta = default_meta(&env);
 
-    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000);
+    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000, &meta);
     assert_eq!(plan_id, 1);
 
     let plan = client.get_plan(&1).unwrap();
     assert_eq!(plan.merchant, merchant);
     assert_eq!(plan.amount, 1000);
     assert_eq!(plan.cycle_seconds, 2592000);
+    assert_eq!(plan.metadata, meta);
 }
 
 #[test]
@@ -66,11 +72,12 @@ fn test_plan_create_invalid_amount() {
     let env = Env::default();
     let (client, token, merchant, _, _, _) = setup(&env);
     client.initialize();
+    let meta = default_meta(&env);
 
-    let res = client.try_create_plan(&merchant, &token.address, &0, &2592000);
+    let res = client.try_create_plan(&merchant, &token.address, &0, &2592000, &meta);
     assert!(res.is_err());
 
-    let res2 = client.try_create_plan(&merchant, &token.address, &-100, &2592000);
+    let res2 = client.try_create_plan(&merchant, &token.address, &-100, &2592000, &meta);
     assert!(res2.is_err());
 }
 
@@ -79,8 +86,9 @@ fn test_plan_create_invalid_cycle() {
     let env = Env::default();
     let (client, token, merchant, _, _, _) = setup(&env);
     client.initialize();
+    let meta = default_meta(&env);
 
-    let res = client.try_create_plan(&merchant, &token.address, &1000, &0);
+    let res = client.try_create_plan(&merchant, &token.address, &1000, &0, &meta);
     assert!(res.is_err());
 }
 
@@ -89,10 +97,11 @@ fn test_subscription_success() {
     let env = Env::default();
     let (client, token, merchant, subscriber, _, _) = setup(&env);
     client.initialize();
+    let meta = default_meta(&env);
 
     token.mint(&subscriber, &10000);
 
-    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000);
+    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000, &meta);
 
     let initial_timestamp = env.ledger().timestamp();
 
@@ -113,9 +122,10 @@ fn test_subscription_duplicate() {
     let env = Env::default();
     let (client, token, merchant, subscriber, _, _) = setup(&env);
     client.initialize();
+    let meta = default_meta(&env);
     token.mint(&subscriber, &10000);
 
-    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000);
+    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000, &meta);
 
     client.subscribe(&subscriber, &plan_id);
     let res = client.try_subscribe(&subscriber, &plan_id);
@@ -127,9 +137,10 @@ fn test_subscription_cancel() {
     let env = Env::default();
     let (client, token, merchant, subscriber, _, _) = setup(&env);
     client.initialize();
+    let meta = default_meta(&env);
     token.mint(&subscriber, &10000);
 
-    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000);
+    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000, &meta);
     client.subscribe(&subscriber, &plan_id);
 
     client.cancel_subscription(&subscriber, &plan_id);
@@ -142,10 +153,11 @@ fn test_billing_success() {
     let env = Env::default();
     let (client, token, merchant, subscriber, _, _) = setup(&env);
     client.initialize();
+    let meta = default_meta(&env);
     token.mint(&subscriber, &10000);
     token.approve(&subscriber, &client.address, &10000, &2000000);
 
-    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000);
+    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000, &meta);
     client.subscribe(&subscriber, &plan_id);
 
     let sub1 = client.get_subscription(&subscriber, &plan_id).unwrap();
@@ -167,9 +179,10 @@ fn test_billing_too_early() {
     let env = Env::default();
     let (client, token, merchant, subscriber, _, _) = setup(&env);
     client.initialize();
+    let meta = default_meta(&env);
     token.mint(&subscriber, &10000);
 
-    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000);
+    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000, &meta);
     client.subscribe(&subscriber, &plan_id);
 
     let res = client.try_execute_billing(&subscriber, &plan_id);
@@ -181,9 +194,10 @@ fn test_billing_canceled() {
     let env = Env::default();
     let (client, token, merchant, subscriber, _, _) = setup(&env);
     client.initialize();
+    let meta = default_meta(&env);
     token.mint(&subscriber, &10000);
 
-    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000);
+    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000, &meta);
     client.subscribe(&subscriber, &plan_id);
     client.cancel_subscription(&subscriber, &plan_id);
 
@@ -200,10 +214,11 @@ fn test_billing_late() {
     let env = Env::default();
     let (client, token, merchant, subscriber, _, _) = setup(&env);
     client.initialize();
+    let meta = default_meta(&env);
     token.mint(&subscriber, &10000);
     token.approve(&subscriber, &client.address, &10000, &2000000);
 
-    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000);
+    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000, &meta);
     client.subscribe(&subscriber, &plan_id);
 
     let sub1 = client.get_subscription(&subscriber, &plan_id).unwrap();
@@ -224,10 +239,11 @@ fn test_pause_and_resume() {
     let env = Env::default();
     let (client, token, merchant, subscriber, _, _) = setup(&env);
     client.initialize();
+    let meta = default_meta(&env);
     token.mint(&subscriber, &10000);
     token.approve(&subscriber, &client.address, &10000, &2000000);
 
-    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000);
+    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000, &meta);
     client.subscribe(&subscriber, &plan_id);
 
     client.pause_subscription(&subscriber, &plan_id);
@@ -279,6 +295,7 @@ fn test_property_rollover_monotonic_and_integer_multiples() {
         let env = Env::default();
         let (client, token, merchant, subscriber, _, _) = setup(&env);
         client.initialize();
+        let meta = default_meta(&env);
 
         let initial_ts = rng.range_u64(0, 10_000_000_000);
         let cycle_seconds = rng.range_u64(1, 31_536_000);
@@ -291,7 +308,7 @@ fn test_property_rollover_monotonic_and_integer_multiples() {
 
         env.ledger().with_mut(|l| l.timestamp = initial_ts);
 
-        let plan_id = client.create_plan(&merchant, &token.address, &amount, &cycle_seconds);
+        let plan_id = client.create_plan(&merchant, &token.address, &amount, &cycle_seconds, &meta);
         client.subscribe(&subscriber, &plan_id);
 
         let sub_init = client.get_subscription(&subscriber, &plan_id).unwrap();
@@ -344,6 +361,7 @@ fn test_property_multi_cycle_lapse_catchup_and_window_rollover() {
         let env = Env::default();
         let (client, token, merchant, subscriber, _, _) = setup(&env);
         client.initialize();
+        let meta = default_meta(&env);
 
         let initial_ts = rng.range_u64(1_000, 1_000_000_000);
         let cycle_seconds = rng.range_u64(60, 86_400);
@@ -357,7 +375,7 @@ fn test_property_multi_cycle_lapse_catchup_and_window_rollover() {
 
         env.ledger().with_mut(|l| l.timestamp = initial_ts);
 
-        let plan_id = client.create_plan(&merchant, &token.address, &amount, &cycle_seconds);
+        let plan_id = client.create_plan(&merchant, &token.address, &amount, &cycle_seconds, &meta);
         client.subscribe(&subscriber, &plan_id);
 
         let sub0 = client.get_subscription(&subscriber, &plan_id).unwrap();
@@ -395,6 +413,7 @@ fn test_edge_minimum_cycle_one_second() {
     let env = Env::default();
     let (client, token, merchant, subscriber, _, _) = setup(&env);
     client.initialize();
+    let meta = default_meta(&env);
 
     token.mint(&subscriber, &10_000);
     token.approve(&subscriber, &client.address, &10_000, &2_000_000);
@@ -402,7 +421,7 @@ fn test_edge_minimum_cycle_one_second() {
     let start_ts = 1_700_000_000u64;
     env.ledger().with_mut(|l| l.timestamp = start_ts);
 
-    let plan_id = client.create_plan(&merchant, &token.address, &100, &1);
+    let plan_id = client.create_plan(&merchant, &token.address, &100, &1, &meta);
     client.subscribe(&subscriber, &plan_id);
 
     for step in 1..=5u64 {
@@ -425,12 +444,13 @@ fn test_edge_u64_max_cycle_and_timestamp_saturation_safety() {
         let env = Env::default();
         let (client, token, merchant, subscriber, _, _) = setup(&env);
         client.initialize();
+        let meta = default_meta(&env);
 
         token.mint(&subscriber, &10_000);
         token.approve(&subscriber, &client.address, &10_000, &2_000_000);
 
         env.ledger().with_mut(|l| l.timestamp = 0);
-        let plan_id = client.create_plan(&merchant, &token.address, &1_000, &u64::MAX);
+        let plan_id = client.create_plan(&merchant, &token.address, &1_000, &u64::MAX, &meta);
         client.subscribe(&subscriber, &plan_id);
 
         let sub = client.get_subscription(&subscriber, &plan_id).unwrap();
@@ -460,12 +480,13 @@ fn test_edge_u64_max_cycle_and_timestamp_saturation_safety() {
         let env = Env::default();
         let (client, token, merchant, subscriber, _, _) = setup(&env);
         client.initialize();
+        let meta = default_meta(&env);
 
         token.mint(&subscriber, &10_000);
         token.approve(&subscriber, &client.address, &10_000, &2_000_000);
 
         env.ledger().with_mut(|l| l.timestamp = initial_ts);
-        let plan_id = client.create_plan(&merchant, &token.address, &1_000, &cycle_seconds);
+        let plan_id = client.create_plan(&merchant, &token.address, &1_000, &cycle_seconds, &meta);
         client.subscribe(&subscriber, &plan_id);
 
         let sub = client.get_subscription(&subscriber, &plan_id).unwrap();
@@ -488,9 +509,10 @@ fn test_edge_u64_max_cycle_and_timestamp_saturation_safety() {
 fn test_plan_create_before_initialization_fails() {
     let env = Env::default();
     let (client, token, merchant, _, _, _) = setup(&env);
+    let meta = default_meta(&env);
     // Intentionally do NOT call client.initialize()
 
-    let res = client.try_create_plan(&merchant, &token.address, &1000, &2592000);
+    let res = client.try_create_plan(&merchant, &token.address, &1000, &2592000, &meta);
     assert_eq!(res, Err(Ok(crate::errors::Error::NotInitialized)));
 }
 
@@ -500,22 +522,29 @@ fn test_plan_counter_monotonic_and_non_overwriting() {
     let (client, token, merchant, _, _, _) = setup(&env);
     client.initialize();
 
-    let plan1 = client.create_plan(&merchant, &token.address, &1000, &2592000);
+    let meta1 = String::from_str(&env, "Starter Tier - Basic");
+    let meta2 = String::from_str(&env, "Pro Tier - Standard");
+    let meta3 = String::from_str(&env, "Enterprise Tier - Unlimited");
+
+    let plan1 = client.create_plan(&merchant, &token.address, &1000, &2592000, &meta1);
     assert_eq!(plan1, 1);
 
-    let plan2 = client.create_plan(&merchant, &token.address, &2000, &86400);
+    let plan2 = client.create_plan(&merchant, &token.address, &2000, &86400, &meta2);
     assert_eq!(plan2, 2);
 
-    let plan3 = client.create_plan(&merchant, &token.address, &5000, &604800);
+    let plan3 = client.create_plan(&merchant, &token.address, &5000, &604800, &meta3);
     assert_eq!(plan3, 3);
 
     // Verify each plan remains distinct and intact
     let p1 = client.get_plan(&1).unwrap();
     assert_eq!(p1.amount, 1000);
+    assert_eq!(p1.metadata, meta1);
     let p2 = client.get_plan(&2).unwrap();
     assert_eq!(p2.amount, 2000);
+    assert_eq!(p2.metadata, meta2);
     let p3 = client.get_plan(&3).unwrap();
     assert_eq!(p3.amount, 5000);
+    assert_eq!(p3.metadata, meta3);
 
     // Re-initialization attempt must fail and preserve counter
     let re_init = client.try_initialize();
@@ -528,9 +557,10 @@ fn test_subscribe_while_paused_rejected() {
     let env = Env::default();
     let (client, token, merchant, subscriber, _, _) = setup(&env);
     client.initialize();
+    let meta = default_meta(&env);
     token.mint(&subscriber, &10000);
 
-    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000);
+    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000, &meta);
     client.subscribe(&subscriber, &plan_id);
 
     client.pause_subscription(&subscriber, &plan_id);
@@ -547,9 +577,10 @@ fn test_resubscribe_after_cancel_succeeds() {
     let env = Env::default();
     let (client, token, merchant, subscriber, _, _) = setup(&env);
     client.initialize();
+    let meta = default_meta(&env);
     token.mint(&subscriber, &10000);
 
-    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000);
+    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000, &meta);
     client.subscribe(&subscriber, &plan_id);
     assert_eq!(token.balance(&subscriber), 9000);
 
@@ -574,10 +605,11 @@ fn test_duplicate_billing_in_same_cycle_rejected_by_contract() {
     let env = Env::default();
     let (client, token, merchant, subscriber, _, _) = setup(&env);
     client.initialize();
+    let meta = default_meta(&env);
     token.mint(&subscriber, &10000);
     token.approve(&subscriber, &client.address, &10000, &2000000);
 
-    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000);
+    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000, &meta);
     client.subscribe(&subscriber, &plan_id);
 
     let sub = client.get_subscription(&subscriber, &plan_id).unwrap();
@@ -598,4 +630,36 @@ fn test_duplicate_billing_in_same_cycle_rejected_by_contract() {
     // Balance remains unchanged (no double billing)
     assert_eq!(token.balance(&subscriber), 8000);
     assert_eq!(token.balance(&merchant), 2000);
+}
+
+#[test]
+fn test_plan_metadata_persistence_and_boundary_limits() {
+    let env = Env::default();
+    let (client, token, merchant, _, _, _) = setup(&env);
+    client.initialize();
+
+    // 1. Empty string boundary
+    let empty_meta = String::from_str(&env, "");
+    let id_empty = client.create_plan(&merchant, &token.address, &100, &3600, &empty_meta);
+    let p_empty = client.get_plan(&id_empty).unwrap();
+    assert_eq!(p_empty.metadata, empty_meta);
+    assert_eq!(p_empty.metadata.len(), 0);
+
+    // 2. IPFS CIDv1 URI reference
+    let cid_meta = String::from_str(
+        &env,
+        "ipfs://bafkreigh2akiscaildcqabsyg3dfr6chu3fgpregiymsck7e7aqa4s52zy",
+    );
+    let id_cid = client.create_plan(&merchant, &token.address, &500, &86400, &cid_meta);
+    let p_cid = client.get_plan(&id_cid).unwrap();
+    assert_eq!(p_cid.metadata, cid_meta);
+
+    // 3. Large 1024-byte metadata payload boundary
+    let long_bytes = [b'M'; 1024];
+    let long_str = core::str::from_utf8(&long_bytes).unwrap();
+    let long_meta = String::from_str(&env, long_str);
+    let id_long = client.create_plan(&merchant, &token.address, &2500, &604800, &long_meta);
+    let p_long = client.get_plan(&id_long).unwrap();
+    assert_eq!(p_long.metadata, long_meta);
+    assert_eq!(p_long.metadata.len(), 1024);
 }
