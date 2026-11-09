@@ -247,3 +247,115 @@ fn test_pause_and_resume() {
     client.execute_billing(&subscriber, &plan_id);
     assert_eq!(token.balance(&subscriber), 8000);
 }
+
+#[test]
+fn test_plan_create_before_initialization_fails() {
+    let env = Env::default();
+    let (client, token, merchant, _, _, _) = setup(&env);
+    // Intentionally do NOT call client.initialize()
+
+    let res = client.try_create_plan(&merchant, &token.address, &1000, &2592000);
+    assert_eq!(res, Err(Ok(crate::errors::Error::NotInitialized)));
+}
+
+#[test]
+fn test_plan_counter_monotonic_and_non_overwriting() {
+    let env = Env::default();
+    let (client, token, merchant, _, _, _) = setup(&env);
+    client.initialize();
+
+    let plan1 = client.create_plan(&merchant, &token.address, &1000, &2592000);
+    assert_eq!(plan1, 1);
+
+    let plan2 = client.create_plan(&merchant, &token.address, &2000, &86400);
+    assert_eq!(plan2, 2);
+
+    let plan3 = client.create_plan(&merchant, &token.address, &5000, &604800);
+    assert_eq!(plan3, 3);
+
+    // Verify each plan remains distinct and intact
+    let p1 = client.get_plan(&1).unwrap();
+    assert_eq!(p1.amount, 1000);
+    let p2 = client.get_plan(&2).unwrap();
+    assert_eq!(p2.amount, 2000);
+    let p3 = client.get_plan(&3).unwrap();
+    assert_eq!(p3.amount, 5000);
+
+    // Re-initialization attempt must fail and preserve counter
+    let re_init = client.try_initialize();
+    assert!(re_init.is_err());
+    assert_eq!(client.next_plan_id(), 4);
+}
+
+#[test]
+fn test_subscribe_while_paused_rejected() {
+    let env = Env::default();
+    let (client, token, merchant, subscriber, _, _) = setup(&env);
+    client.initialize();
+    token.mint(&subscriber, &10000);
+
+    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000);
+    client.subscribe(&subscriber, &plan_id);
+
+    client.pause_subscription(&subscriber, &plan_id);
+    let sub = client.get_subscription(&subscriber, &plan_id).unwrap();
+    assert_eq!(sub.status, SubscriptionStatus::Paused);
+
+    // Attempting to subscribe again while paused must fail with SubscriptionPaused
+    let res = client.try_subscribe(&subscriber, &plan_id);
+    assert_eq!(res, Err(Ok(crate::errors::Error::SubscriptionPaused)));
+}
+
+#[test]
+fn test_resubscribe_after_cancel_succeeds() {
+    let env = Env::default();
+    let (client, token, merchant, subscriber, _, _) = setup(&env);
+    client.initialize();
+    token.mint(&subscriber, &10000);
+
+    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000);
+    client.subscribe(&subscriber, &plan_id);
+    assert_eq!(token.balance(&subscriber), 9000);
+
+    // Cancel active subscription
+    client.cancel_subscription(&subscriber, &plan_id);
+    let sub_canceled = client.get_subscription(&subscriber, &plan_id).unwrap();
+    assert_eq!(sub_canceled.status, SubscriptionStatus::Canceled);
+
+    // Fast-forward time
+    env.ledger().with_mut(|l| l.timestamp += 5000000);
+
+    // Re-subscribing creates fresh subscription and charges new cycle
+    client.subscribe(&subscriber, &plan_id);
+    let sub_fresh = client.get_subscription(&subscriber, &plan_id).unwrap();
+    assert_eq!(sub_fresh.status, SubscriptionStatus::Active);
+    assert_eq!(token.balance(&subscriber), 8000);
+    assert_eq!(token.balance(&merchant), 2000);
+}
+
+#[test]
+fn test_duplicate_billing_in_same_cycle_rejected_by_contract() {
+    let env = Env::default();
+    let (client, token, merchant, subscriber, _, _) = setup(&env);
+    client.initialize();
+    token.mint(&subscriber, &10000);
+    token.approve(&subscriber, &client.address, &10000, &2000000);
+
+    let plan_id = client.create_plan(&merchant, &token.address, &1000, &2592000);
+    client.subscribe(&subscriber, &plan_id);
+
+    let sub = client.get_subscription(&subscriber, &plan_id).unwrap();
+    env.ledger().with_mut(|l| l.timestamp = sub.next_billing_time);
+
+    // First billing execution succeeds
+    client.execute_billing(&subscriber, &plan_id);
+    assert_eq!(token.balance(&subscriber), 8000);
+    assert_eq!(token.balance(&merchant), 2000);
+
+    // Second immediate billing attempt within same cycle MUST fail with BillingTooEarly
+    let duplicate_res = client.try_execute_billing(&subscriber, &plan_id);
+    assert_eq!(duplicate_res, Err(Ok(crate::errors::Error::BillingTooEarly)));
+    // Balance remains unchanged (no double billing)
+    assert_eq!(token.balance(&subscriber), 8000);
+    assert_eq!(token.balance(&merchant), 2000);
+}
