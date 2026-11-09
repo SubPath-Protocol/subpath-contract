@@ -14,4 +14,5 @@ pub enum Error {
     InvalidCycle = 8,
     AlreadySubscribed = 9,
     SubscriptionPaused = 10,
+    NotInitialized = 11,
 }
