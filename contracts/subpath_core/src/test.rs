@@ -599,3 +599,108 @@ fn test_duplicate_billing_in_same_cycle_rejected_by_contract() {
     assert_eq!(token.balance(&subscriber), 8000);
     assert_eq!(token.balance(&merchant), 2000);
 }
+
+#[test]
+fn test_past_due_insufficient_allowance_and_recovery() {
+    let env = Env::default();
+    let (client, token, merchant, subscriber, _, _) = setup(&env);
+    client.initialize();
+
+    // Subscriber has sufficient balance for multiple cycles, but zero allowance initially
+    token.mint(&subscriber, &10_000);
+
+    let plan_id = client.create_plan(&merchant, &token.address, &1_000, &2_592_000);
+    client.subscribe(&subscriber, &plan_id);
+    assert_eq!(token.balance(&subscriber), 9_000);
+    assert_eq!(token.balance(&merchant), 1_000);
+
+    let sub1 = client.get_subscription(&subscriber, &plan_id).unwrap();
+    let scheduled_time = sub1.next_billing_time;
+
+    env.ledger().with_mut(|l| l.timestamp = scheduled_time);
+
+    // Billing attempt with zero allowance safely transitions Active -> PastDue without panicking
+    client.execute_billing(&subscriber, &plan_id);
+
+    let sub_past_due = client.get_subscription(&subscriber, &plan_id).unwrap();
+    assert_eq!(sub_past_due.status, SubscriptionStatus::PastDue);
+    assert_eq!(sub_past_due.next_billing_time, scheduled_time);
+    assert_eq!(token.balance(&subscriber), 9_000);
+    assert_eq!(token.balance(&merchant), 1_000);
+
+    // Subscriber approves allowance and billing is re-attempted: PastDue -> Active
+    token.approve(&subscriber, &client.address, &10_000, &2_000_000);
+    client.execute_billing(&subscriber, &plan_id);
+
+    let sub_recovered = client.get_subscription(&subscriber, &plan_id).unwrap();
+    assert_eq!(sub_recovered.status, SubscriptionStatus::Active);
+    assert_eq!(sub_recovered.next_billing_time, scheduled_time + 2_592_000);
+    assert_eq!(token.balance(&subscriber), 8_000);
+    assert_eq!(token.balance(&merchant), 2_000);
+}
+
+#[test]
+fn test_past_due_insufficient_balance_and_recovery() {
+    let env = Env::default();
+    let (client, token, merchant, subscriber, _, _) = setup(&env);
+    client.initialize();
+
+    // Mint exact amount for initial subscription only (leaving 0 balance for cycle 2)
+    token.mint(&subscriber, &1_000);
+    token.approve(&subscriber, &client.address, &10_000, &2_000_000);
+
+    let plan_id = client.create_plan(&merchant, &token.address, &1_000, &2_592_000);
+    client.subscribe(&subscriber, &plan_id);
+    assert_eq!(token.balance(&subscriber), 0);
+
+    let sub1 = client.get_subscription(&subscriber, &plan_id).unwrap();
+    let scheduled_time = sub1.next_billing_time;
+    env.ledger().with_mut(|l| l.timestamp = scheduled_time);
+
+    // Billing with depleted balance transitions Active -> PastDue
+    client.execute_billing(&subscriber, &plan_id);
+    let sub_past_due = client.get_subscription(&subscriber, &plan_id).unwrap();
+    assert_eq!(sub_past_due.status, SubscriptionStatus::PastDue);
+    assert_eq!(sub_past_due.next_billing_time, scheduled_time);
+
+    // Top up subscriber balance and retry billing: PastDue -> Active
+    token.mint(&subscriber, &5_000);
+    client.execute_billing(&subscriber, &plan_id);
+
+    let sub_recovered = client.get_subscription(&subscriber, &plan_id).unwrap();
+    assert_eq!(sub_recovered.status, SubscriptionStatus::Active);
+    assert_eq!(sub_recovered.next_billing_time, scheduled_time + 2_592_000);
+    assert_eq!(token.balance(&subscriber), 4_000);
+    assert_eq!(token.balance(&merchant), 2_000);
+}
+
+#[test]
+fn test_past_due_to_canceled_transition() {
+    let env = Env::default();
+    let (client, token, merchant, subscriber, _, _) = setup(&env);
+    client.initialize();
+
+    token.mint(&subscriber, &5_000);
+
+    let plan_id = client.create_plan(&merchant, &token.address, &1_000, &2_592_000);
+    client.subscribe(&subscriber, &plan_id);
+
+    let sub1 = client.get_subscription(&subscriber, &plan_id).unwrap();
+    env.ledger()
+        .with_mut(|l| l.timestamp = sub1.next_billing_time);
+
+    // Enter PastDue state due to missing allowance
+    client.execute_billing(&subscriber, &plan_id);
+    let sub_past_due = client.get_subscription(&subscriber, &plan_id).unwrap();
+    assert_eq!(sub_past_due.status, SubscriptionStatus::PastDue);
+
+    // Cancel subscription from PastDue state: PastDue -> Canceled
+    client.cancel_subscription(&subscriber, &plan_id);
+    let sub_canceled = client.get_subscription(&subscriber, &plan_id).unwrap();
+    assert_eq!(sub_canceled.status, SubscriptionStatus::Canceled);
+
+    // Even if allowance is subsequently granted, billing a canceled subscription fails
+    token.approve(&subscriber, &client.address, &10_000, &2_000_000);
+    let res = client.try_execute_billing(&subscriber, &plan_id);
+    assert_eq!(res, Err(Ok(crate::errors::Error::SubscriptionCanceled)));
+}

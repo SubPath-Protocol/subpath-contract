@@ -69,7 +69,9 @@ impl SubPathContract {
         let next_billing_time = env.ledger().timestamp().saturating_add(plan.cycle_seconds);
 
         if let Some(existing_sub) = storage::get_subscription(&env, subscriber.clone(), plan_id) {
-            if existing_sub.status == SubscriptionStatus::Active {
+            if existing_sub.status == SubscriptionStatus::Active
+                || existing_sub.status == SubscriptionStatus::PastDue
+            {
                 return Err(Error::AlreadySubscribed);
             }
             if existing_sub.status == SubscriptionStatus::Paused {
@@ -158,15 +160,22 @@ impl SubPathContract {
 
         let plan = storage::get_plan(&env, plan_id).ok_or(Error::PlanNotFound)?;
 
-        // Pull funds via allowance
         let token_client = soroban_sdk::token::Client::new(&env, &plan.token);
-        token_client.transfer_from(
-            &env.current_contract_address(),
-            &subscriber,
-            &plan.merchant,
-            &plan.amount,
-        );
+        let contract_addr = env.current_contract_address();
+        let balance = token_client.balance(&subscriber);
+        let allowance = token_client.allowance(&subscriber, &contract_addr);
 
+        if balance < plan.amount || allowance < plan.amount {
+            sub.status = SubscriptionStatus::PastDue;
+            storage::set_subscription(&env, subscriber.clone(), plan_id, &sub);
+            events::sub_past_due(&env, subscriber, plan_id);
+            return Ok(());
+        }
+
+        // Pull funds via allowance
+        token_client.transfer_from(&contract_addr, &subscriber, &plan.merchant, &plan.amount);
+
+        sub.status = SubscriptionStatus::Active;
         sub.next_billing_time = sub.next_billing_time.saturating_add(plan.cycle_seconds);
         storage::set_subscription(&env, subscriber.clone(), plan_id, &sub);
 
