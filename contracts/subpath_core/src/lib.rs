@@ -35,6 +35,10 @@ impl SubPathContract {
     ) -> Result<u64, Error> {
         merchant.require_auth();
 
+        if !storage::is_initialized(&env) {
+            return Err(Error::NotInitialized);
+        }
+
         if amount <= 0 {
             return Err(Error::InvalidAmount);
         }
@@ -67,6 +71,9 @@ impl SubPathContract {
         if let Some(existing_sub) = storage::get_subscription(&env, subscriber.clone(), plan_id) {
             if existing_sub.status == SubscriptionStatus::Active {
                 return Err(Error::AlreadySubscribed);
+            }
+            if existing_sub.status == SubscriptionStatus::Paused {
+                return Err(Error::SubscriptionPaused);
             }
         }
 
