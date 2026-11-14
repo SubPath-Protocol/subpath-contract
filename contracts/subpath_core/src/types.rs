@@ -14,6 +14,7 @@ pub enum SubscriptionStatus {
     Active,
     Canceled,
     Paused,
+    PastDue,
 }
 
 #[contracttype]
