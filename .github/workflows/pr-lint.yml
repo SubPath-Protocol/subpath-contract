@@ -19,3 +19,4 @@ jobs:
             echo "ERROR: This PR must link to an issue (e.g. 'Fixes #123' or 'Closes #123') or provide a rationale in the 'Rationale for no issue' section."
             exit 1
           fi
+

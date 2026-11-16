@@ -1,3 +1,6 @@
 target/
 Cargo.lock
 subpath-app/
+Stellar_Drips_Wave_Master_Playbook.*
+generate_playbook_pdf.py
+

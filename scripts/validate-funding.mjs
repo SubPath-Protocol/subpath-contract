@@ -229,3 +229,4 @@ try {
 
 const chains = Object.keys(doc.drips)
 console.log(`[funding] OK ${FUNDING_FILE} is valid (${chains.length} chain${chains.length === 1 ? '' : 's'}: ${chains.sort().join(', ')})`)
+
