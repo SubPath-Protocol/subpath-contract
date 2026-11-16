@@ -8,7 +8,7 @@ jobs:
   check-issue-link:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check PR body links to an issue or provides rationale
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
